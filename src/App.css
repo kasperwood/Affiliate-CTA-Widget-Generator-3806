@@ -1,0 +1,100 @@
+.app-container {
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+/* Custom scrollbar for code blocks */
+pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+pre::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Smooth transitions */
+button {
+  transition: all 0.2s ease;
+}
+
+/* Focus styles for better accessibility */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Widget history animations */
+.widget-history-item {
+  transition: all 0.3s ease;
+}
+
+.widget-history-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Required field indicator */
+.required::after {
+  content: '*';
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+/* Auto-update badge animation */
+@keyframes pulse-green {
+  0% {
+    background-color: #dcfce7;
+  }
+  50% {
+    background-color: #bbf7d0;
+  }
+  100% {
+    background-color: #dcfce7;
+  }
+}
+
+.auto-update-badge {
+  animation: pulse-green 2s infinite ease-in-out;
+}
+
+/* Tooltip styles */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
