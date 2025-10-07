@@ -1,8 +1,29 @@
 export const generateWidgetHTML = (widgetData) => {
   // Calculate discount using string values with commas
-  const discount = widgetData.originalPrice && widgetData.discountedPrice && widgetData.discountedPrice.trim() !== '' 
+  const discount = widgetData.originalPrice && widgetData.discountedPrice 
     ? Math.round(((parseFloat(widgetData.originalPrice.replace(',', '.')) - parseFloat(widgetData.discountedPrice.replace(',', '.'))) / parseFloat(widgetData.originalPrice.replace(',', '.'))) * 100)
     : 0;
+
+  // Calculate absolute savings amount
+  const calculateSavings = () => {
+    if (!widgetData.originalPrice || !widgetData.discountedPrice) return null;
+    
+    const originalPrice = parseFloat(widgetData.originalPrice.replace(',', '.'));
+    const discountedPrice = parseFloat(widgetData.discountedPrice.replace(',', '.'));
+    
+    if (originalPrice <= discountedPrice) return null;
+    
+    const savings = originalPrice - discountedPrice;
+    // Format the savings with comma as decimal separator to match Danish/Norwegian format
+    return savings.toFixed(2).replace('.', ',');
+  };
+  
+  const savings = calculateSavings();
+  
+  // Get savings text based on language
+  const getSavingsText = () => {
+    return widgetData.language === 'da' ? 'Du sparer' : 'Du sparer';
+  };
 
   // Get button text based on language if not provided
   const getButtonText = () => {
@@ -12,7 +33,7 @@ export const generateWidgetHTML = (widgetData) => {
 
   // Format price with kr. only if price exists, preserving commas
   const formatPrice = (price) => {
-    if (!price || price.trim() === '') return '';
+    if (!price) return '';
     return `${price} kr.`;
   };
 
@@ -215,7 +236,7 @@ export const generateWidgetHTML = (widgetData) => {
         </svg>
         <span style="font-weight: 500;">${shippingText}</span>
       </div>
-      <div id="countdown-timer-${widgetData.id}" style="
+      <div id="countdown-timer" style="
         font-size: 18px;
         font-weight: bold;
         color: #78350f;
@@ -248,15 +269,9 @@ export const generateWidgetHTML = (widgetData) => {
                            minutesLeft.toString().padStart(2, '0') + ':' + 
                            secondsLeft.toString().padStart(2, '0');
           
-          const countdownElement = document.getElementById('countdown-timer-${widgetData.id}');
-          if (countdownElement) {
-            countdownElement.textContent = timeString;
-          }
+          document.getElementById('countdown-timer').textContent = timeString;
         } else {
-          const countdownElement = document.getElementById('countdown-timer-${widgetData.id}');
-          if (countdownElement) {
-            countdownElement.textContent = '00:00:00';
-          }
+          document.getElementById('countdown-timer').textContent = '00:00:00';
         }
       }
       
@@ -311,156 +326,9 @@ export const generateWidgetHTML = (widgetData) => {
     </div>`;
   };
 
-  // Generate tracking script for click analytics
-  const generateTrackingScript = () => {
-    const widgetId = widgetData.id || Date.now();
-    
-    return `
-    <script>
-    (function() {
-      var trackLink = document.querySelector('.cta-widget-link-${widgetId}');
-      if (trackLink) {
-        trackLink.addEventListener('click', function(e) {
-          // Record click in localStorage
-          try {
-            var clickData = JSON.parse(localStorage.getItem('widgetClicks') || '{}');
-            var widgetId = '${widgetId}';
-            
-            if (!clickData[widgetId]) {
-              clickData[widgetId] = [];
-            }
-            
-            clickData[widgetId].push({
-              timestamp: new Date().toISOString(),
-              referrer: document.referrer || 'direct'
-            });
-            
-            localStorage.setItem('widgetClicks', JSON.stringify(clickData));
-          } catch (err) {
-            console.error('Error tracking widget click:', err);
-          }
-        });
-      }
-    })();
-    </script>`;
-  };
-
-  // Generate auto-update script
-  const generateAutoUpdateScript = () => {
-    const widgetId = widgetData.id || Date.now();
-    
-    return `
-    <script>
-    (function() {
-      // Check for widget updates every minute
-      function checkForWidgetUpdates() {
-        try {
-          const widgetId = '${widgetId}';
-          const storedWidgets = JSON.parse(localStorage.getItem('widgetHistory') || '[]');
-          const currentWidget = storedWidgets.find(w => w.id == widgetId);
-          
-          if (currentWidget) {
-            // Compare last modified timestamp with the current widget's data
-            const currentTimestamp = '${widgetData.lastModified || widgetData.createdAt || new Date().toISOString()}';
-            const storedTimestamp = currentWidget.lastModified || currentWidget.createdAt;
-            
-            if (storedTimestamp && storedTimestamp !== currentTimestamp) {
-              // Widget has been updated, refresh the content
-              const containerElement = document.getElementById('widget-container-${widgetId}');
-              if (containerElement) {
-                // Apply updated widget properties
-                updateWidgetContent(containerElement, currentWidget);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Error checking for widget updates:', err);
-        }
-      }
-      
-      // Function to update widget content with new data
-      function updateWidgetContent(container, widgetData) {
-        // Update title
-        const titleElement = container.querySelector('.widget-title');
-        if (titleElement) titleElement.textContent = widgetData.productTitle;
-        
-        // Update description
-        const descElement = container.querySelector('.widget-description');
-        if (descElement) {
-          let description = widgetData.productDescription;
-          if (widgetData.customUsps && widgetData.customUsps.length > 0) {
-            const uspList = widgetData.customUsps.map(usp => '✓ ' + usp).join('<br>');
-            description = description ? description + '<br><br>' + uspList : uspList;
-          }
-          descElement.innerHTML = description;
-        }
-        
-        // Update prices
-        const originalPriceElement = container.querySelector('.widget-original-price');
-        const discountedPriceElement = container.querySelector('.widget-discounted-price');
-        
-        if (originalPriceElement && discountedPriceElement) {
-          const hasDiscount = widgetData.discountedPrice && widgetData.discountedPrice.trim() !== '';
-          
-          if (hasDiscount) {
-            originalPriceElement.style.display = 'inline';
-            originalPriceElement.textContent = widgetData.originalPrice + ' kr.';
-            discountedPriceElement.textContent = widgetData.discountedPrice + ' kr.';
-          } else {
-            originalPriceElement.style.display = 'none';
-            discountedPriceElement.textContent = widgetData.originalPrice + ' kr.';
-          }
-          
-          // Update discount badge if exists
-          const discountBadge = container.querySelector('.widget-discount-badge');
-          if (discountBadge) {
-            if (hasDiscount) {
-              const discount = Math.round(
-                ((parseFloat(widgetData.originalPrice.replace(',', '.')) - 
-                  parseFloat(widgetData.discountedPrice.replace(',', '.'))) / 
-                 parseFloat(widgetData.originalPrice.replace(',', '.'))) * 100
-              );
-              
-              discountBadge.textContent = '-' + discount + '%';
-              discountBadge.style.display = 'block';
-            } else {
-              discountBadge.style.display = 'none';
-            }
-          }
-        }
-        
-        // Update CTA button
-        const ctaButton = container.querySelector('.cta-widget-link');
-        if (ctaButton) {
-          ctaButton.textContent = widgetData.ctaText || (widgetData.language === 'da' ? 'Køb nu' : 'Kjøp nå');
-          ctaButton.href = widgetData.affiliateLink;
-          ctaButton.style.backgroundColor = widgetData.buttonColor;
-        }
-        
-        // Update image
-        const imageElement = container.querySelector('.widget-image');
-        if (imageElement) {
-          imageElement.src = widgetData.productImage;
-        }
-        
-        // Update colors
-        container.style.backgroundColor = widgetData.backgroundColor;
-        container.style.color = widgetData.textColor;
-        
-        // Additional updates can be added for other widget properties
-      }
-      
-      // Initial check and setup interval
-      checkForWidgetUpdates();
-      setInterval(checkForWidgetUpdates, 60000); // Check every minute
-    })();
-    </script>`;
-  };
-
-  return `<!-- CTA Widget - Generated by CTA Widget Generator (Auto-updating) -->
-<div id="widget-container-${widgetData.id || Date.now()}" style="
-  max-width: 100%;
-  width: 400px;
+  return `<!-- CTA Widget - Generated by CTA Widget Generator -->
+<div style="
+  max-width: 400px;
   margin: 20px auto;
   background-color: ${widgetData.backgroundColor};
   color: ${widgetData.textColor};
@@ -474,7 +342,6 @@ export const generateWidgetHTML = (widgetData) => {
     <img 
       src="${widgetData.productImage}" 
       alt="${widgetData.productTitle}"
-      class="widget-image"
       style="
         width: 100%;
         height: 200px;
@@ -484,7 +351,7 @@ export const generateWidgetHTML = (widgetData) => {
       onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop'"
     />
     ${discount > 0 ? `
-    <div class="widget-discount-badge" style="
+    <div style="
       position: absolute;
       top: 8px;
       right: 8px;
@@ -506,7 +373,7 @@ export const generateWidgetHTML = (widgetData) => {
       justify-content: space-between;
       margin-bottom: 8px;
     ">
-      <h3 class="widget-title" style="
+      <h3 style="
         font-weight: bold;
         font-size: 18px;
         margin: 0;
@@ -516,7 +383,7 @@ export const generateWidgetHTML = (widgetData) => {
       ${generateStockStatusHTML()}
     </div>
     
-    <div class="widget-description" style="
+    <div style="
       font-size: 14px;
       opacity: 0.8;
       margin: 0 0 12px 0;
@@ -525,28 +392,31 @@ export const generateWidgetHTML = (widgetData) => {
     ">${getEnhancedDescription()}</div>
     
     <div style="
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
       margin-bottom: 16px;
     ">
       <div style="display: flex; align-items: center; gap: 8px;">
-        ${widgetData.originalPrice && widgetData.discountedPrice && widgetData.discountedPrice.trim() !== '' ? `
-        <span class="widget-original-price" style="
+        ${widgetData.originalPrice && widgetData.discountedPrice && widgetData.originalPrice !== widgetData.discountedPrice ? `
+        <span style="
           font-size: 14px;
           text-decoration: line-through;
           opacity: 0.6;
-        ">${formatPrice(widgetData.originalPrice)}</span>
-        <span class="widget-discounted-price" style="
+        ">${formatPrice(widgetData.originalPrice)}</span>` : ''}
+        ${widgetData.discountedPrice ? `
+        <span style="
           font-size: 20px;
           font-weight: bold;
-        ">${formatPrice(widgetData.discountedPrice)}</span>` : `
-        <span class="widget-original-price" style="display: none"></span>
-        <span class="widget-discounted-price" style="
-          font-size: 20px;
-          font-weight: bold;
-        ">${formatPrice(widgetData.originalPrice)}</span>`}
+        ">${formatPrice(widgetData.discountedPrice)}</span>` : ''}
       </div>
+      
+      ${savings ? `
+      <div style="
+        color: #22c55e;
+        font-size: 14px;
+        font-weight: 500;
+        margin-top: 4px;
+      ">
+        ${getSavingsText()} ${savings} kr.
+      </div>` : ''}
     </div>
     
     ${generateTestimonialHTML()}
@@ -555,7 +425,6 @@ export const generateWidgetHTML = (widgetData) => {
     <a href="${widgetData.affiliateLink}" 
        target="_blank" 
        rel="noopener noreferrer"
-       class="cta-widget-link cta-widget-link-${widgetData.id || Date.now()}"
        style="
          display: block;
          width: 100%;
@@ -579,9 +448,7 @@ export const generateWidgetHTML = (widgetData) => {
     
     ${generateStandardUspsHTML()}
   </div>
-</div>
-${generateTrackingScript()}
-${generateAutoUpdateScript()}`;
+</div>`;
 };
 
 export const generateIframeCode = (widgetData) => {
@@ -595,34 +462,13 @@ export const generateIframeCode = (widgetData) => {
   <title>CTA Widget</title>
   <style>
     body { margin: 0; padding: 10px; background: transparent; }
-    .widget-container { 
-      max-width: 400px;
-      margin: 0 auto;
-      width: 100%;
-    }
     @media (max-width: 480px) {
       .widget-container { max-width: 100% !important; }
     }
   </style>
-  <script>
-    // Add listener for postMessage from parent window
-    window.addEventListener('message', function(event) {
-      try {
-        const data = event.data;
-        if (data && data.type === 'WIDGET_UPDATE' && data.widgetId === '${widgetData.id}') {
-          // Reload iframe to get latest widget version
-          window.location.reload();
-        }
-      } catch (err) {
-        console.error('Error handling widget update message:', err);
-      }
-    });
-  </script>
 </head>
 <body>
-  <div class="widget-container">
-    ${htmlContent}
-  </div>
+  ${htmlContent}
 </body>
 </html>
   `);
@@ -637,13 +483,14 @@ export const generateIframeCode = (widgetData) => {
   const testimonialHeight = widgetData.showTestimonial ? 100 : 0;
   const paymentIconsHeight = (widgetData.showApplePay || widgetData.showGooglePay || widgetData.showMobilePay) ? 40 : 0;
   const stockStatusHeight = widgetData.stockStatus && widgetData.stockStatus !== 'none' ? 20 : 0;
+  const savingsHeight = widgetData.originalPrice && widgetData.discountedPrice && 
+                        parseFloat(widgetData.originalPrice.replace(',', '.')) > parseFloat(widgetData.discountedPrice.replace(',', '.')) ? 20 : 0;
   
   const totalHeight = baseHeight + standardUspHeight + customUspHeight + countdownHeight + 
-                      testimonialHeight + paymentIconsHeight + stockStatusHeight;
+                      testimonialHeight + paymentIconsHeight + stockStatusHeight + savingsHeight;
 
-  return `<!-- Auto-updating iframe Embed Code -->
+  return `<!-- iframe Embed Code -->
 <iframe 
-  id="widget-iframe-${widgetData.id}"
   src="data:text/html;charset=utf-8,${encodedHTML}"
   width="100%" 
   height="${totalHeight}"
@@ -651,76 +498,5 @@ export const generateIframeCode = (widgetData) => {
   scrolling="no"
   style="max-width: 420px; margin: 20px auto; display: block;"
   title="Product CTA Widget">
-</iframe>
-<script>
-  // Script to enable live updates for widget
-  (function() {
-    const widgetId = '${widgetData.id}';
-    let lastCheckedTimestamp = new Date().getTime();
-    
-    // Function to check for widget updates
-    function checkForWidgetUpdates() {
-      try {
-        const storedWidgets = JSON.parse(localStorage.getItem('widgetHistory') || '[]');
-        const widget = storedWidgets.find(w => w.id == widgetId);
-        
-        if (widget) {
-          const lastModified = new Date(widget.lastModified || widget.createdAt).getTime();
-          
-          if (lastModified > lastCheckedTimestamp) {
-            // Widget has been updated, notify iframe
-            const iframe = document.getElementById('widget-iframe-' + widgetId);
-            if (iframe && iframe.contentWindow) {
-              iframe.contentWindow.postMessage({
-                type: 'WIDGET_UPDATE',
-                widgetId: widgetId
-              }, '*');
-              
-              lastCheckedTimestamp = new Date().getTime();
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error checking for widget updates:', err);
-      }
-    }
-    
-    // Check for updates periodically
-    setInterval(checkForWidgetUpdates, 30000); // Every 30 seconds
-  })();
-</script>`;
-};
-
-// Helper function to store and manage widget data
-export const storeWidgetData = (widgetData) => {
-  // Add last modified timestamp
-  const widgetToStore = {
-    ...widgetData,
-    lastModified: new Date().toISOString()
-  };
-  
-  try {
-    // Get existing widgets
-    const storedWidgets = JSON.parse(localStorage.getItem('widgetHistory') || '[]');
-    const existingWidgetIndex = storedWidgets.findIndex(widget => widget.id === widgetData.id);
-    
-    if (existingWidgetIndex >= 0) {
-      // Update existing widget
-      storedWidgets[existingWidgetIndex] = {
-        ...storedWidgets[existingWidgetIndex],
-        ...widgetToStore
-      };
-    } else {
-      // Add new widget
-      storedWidgets.unshift(widgetToStore);
-    }
-    
-    // Store updated list
-    localStorage.setItem('widgetHistory', JSON.stringify(storedWidgets));
-    
-    return true;
-  } catch (err) {
-    console.error('Error storing widget data:', err);
-    return false;
-  }
+</iframe>`;
 };
